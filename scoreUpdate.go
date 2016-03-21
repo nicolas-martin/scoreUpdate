@@ -1,13 +1,12 @@
 package main
 
 import (
-	// "database/sql"
-
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	// _ "github.com/go-sql-driver/mysql"
-	// "time"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 // Item post value
@@ -59,10 +58,19 @@ func main() {
 		fmt.Println(err)
 	}
 
-	// feed := new(Feed)
 	feed := new(Feed)
 	err = json.NewDecoder(resp.Body).Decode(feed)
 	fmt.Printf("%d - %d \r\n", feed.LiveData.LineScore.Teams.Home.Goals, feed.LiveData.LineScore.Teams.Away.Goals)
 	fmt.Println(feed)
+
+	db, err := sql.Open("mysql", "root:password@/ScoreBot")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer db.Close()
+
+	for {
+
+	}
 
 }
