@@ -21,5 +21,4 @@ Score update is a chatbot which allows users to subscribe to real time game upda
 | Facebook      | In Progress   |
 | Slack         | In Progress   |
 | WeChat        | In Progress   |
-| Viber         | In Progress   |
 | Twitter       | In Progress   |

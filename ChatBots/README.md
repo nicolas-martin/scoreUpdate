@@ -1,6 +1,6 @@
-# ChatBot
+# Chat Bots
 
-This folder contains all files related to the Chat Bot
+This folder contains all files related to the Chat Bots
 
 ## Supported Messenging Platforms (Sukhveer)
 
@@ -10,5 +10,4 @@ This folder contains all files related to the Chat Bot
 | Facebook      | In Progress   |
 | Slack         | In Progress   |
 | WeChat        | In Progress   |
-| Viber         | In Progress   |
 | Twitter       | In Progress   |
