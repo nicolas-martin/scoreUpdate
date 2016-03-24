@@ -1,11 +1,14 @@
-package main
+package NHL
 
 import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
+	"github.com/nicolas-martin/scoreUpdate/Interfaces"
+	// Blank import due to its use as a driver
 	_ "github.com/go-sql-driver/mysql"
 )
 
@@ -63,13 +66,22 @@ type Event struct {
 	Score   string
 }
 
-func main() {
+func (f *Feed) score() string {
+	return fmt.Sprintf("%d - %d \r\n", f.LiveData.LineScore.Teams.Home.Goals, f.LiveData.LineScore.Teams.Away.Goals)
+}
 
+// Nhl represents an NHL game
+type Nhl struct {
+	Interfaces.Game
+}
+
+// Loop and check for new events
+func (n *Nhl) Loop() {
 	var prevFeed Feed
 
 	for {
 
-		resp, err := http.Get("https://statsapi.web.nhl.com/api/v1/game/2015021078/feed/live")
+		resp, err := http.Get(n.URL)
 
 		if err != nil {
 			fmt.Println(err)
@@ -78,7 +90,7 @@ func main() {
 		feed := new(Feed)
 		err = json.NewDecoder(resp.Body).Decode(feed)
 
-		fmt.Printf("%d - %d \r\n", feed.LiveData.LineScore.Teams.Home.Goals, feed.LiveData.LineScore.Teams.Away.Goals)
+		fmt.Printf(feed.score())
 		fmt.Println(feed)
 
 		db, err := sql.Open("mysql", "root:password@/ScoreBot")
@@ -99,27 +111,24 @@ func main() {
 		if prevFeed.LiveData.LineScore.Teams.Home.Goals != feed.LiveData.LineScore.Teams.Home.Goals ||
 			prevFeed.LiveData.LineScore.Teams.Away.Goals != feed.LiveData.LineScore.Teams.Away.Goals {
 
-			score := fmt.Printf("%d - %d", feed.LiveData.LineScore.Teams.Home.Goals, feed.LiveData.LineScore.Teams.Away.Goals)
-			insertMessageToSend(db, Event{"Goal", "", feed.Key, score})
+			insertMessageToSend(db, Event{"Goal", "", feed.Key, feed.score()})
 		}
 
 		if prevFeed.LiveData.LineScore.CurrentPeriod > 1 && prevFeed.LiveData.LineScore.CurrentPeriod != feed.LiveData.LineScore.CurrentPeriod {
-			score := fmt.Printf("%d - %d", feed.LiveData.LineScore.Teams.Home.Goals, feed.LiveData.LineScore.Teams.Away.Goals)
-			insertMessageToSend(db, Event{"End of period", "", feed.Key, score})
+			insertMessageToSend(db, Event{"End of period", "", feed.Key, feed.score()})
 		}
 
 		if prevFeed.GameData.Status.DetailedState == "Live" && feed.GameData.Status.DetailedState == "Final" {
-			score := fmt.Printf("%d - %d", feed.LiveData.LineScore.Teams.Home.Goals, feed.LiveData.LineScore.Teams.Away.Goals)
-			insertMessageToSend(db, Event{"GameEnded", "", feed.Key, score})
+			insertMessageToSend(db, Event{"GameEnded", "", feed.Key, feed.score()})
 		}
 
-		prevFeed = feed
+		prevFeed = *feed
+		time.Sleep(2 * time.Second)
 
 	}
-
 }
 
-func insertMessageToSend(db *sql.DB, Event newEvent) {
+func insertMessageToSend(db *sql.DB, newEvent Event) {
 
 	stmNewOutbox, err := db.Prepare("INSERT INTO `ScoreBot`.`Event` (`Type`,`Media`,`MatchId`,`Score`) VALUES (?, ?, ?, ?)")
 	if err != nil {
