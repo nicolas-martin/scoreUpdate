@@ -4,10 +4,10 @@
 
 ## Important team updates
 
-- Highlights
-- Goals
-- End of period scores
-- Injuries
+- [ ] Highlights
+- [x] Goals
+- [x] End of period scores
+- [ ] Injuries
 
 ## URL's
 
