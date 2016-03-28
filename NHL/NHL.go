@@ -98,11 +98,18 @@ func (n *Nhl) Loop() {
 			panic(err.Error())
 		}
 
+		// First run
+		if prevFeed.Key == 0 {
+			prevFeed = *feed
+		}
+
 		defer db.Close()
 
+		_ = "breakpoint"
 		// TODO: Made these 4 methods into interface that each sport will have to implement.
 		// The previous state wasn't live and now it is -- Record game started event.
-		if prevFeed.GameData.Status.DetailedState != "Live" && feed.GameData.Status.DetailedState == "Live" {
+		var strLive = "Live"
+		if prevFeed.GameData.Status.DetailedState != strLive && feed.GameData.Status.DetailedState == strLive {
 			//TODO: Need have this match present in a match table
 			insertMessageToSend(db, Event{"GameStarted", "", feed.Key, "0-0"})
 		}
@@ -118,7 +125,7 @@ func (n *Nhl) Loop() {
 			insertMessageToSend(db, Event{"End of period", "", feed.Key, feed.score()})
 		}
 
-		if prevFeed.GameData.Status.DetailedState == "Live" && feed.GameData.Status.DetailedState == "Final" {
+		if prevFeed.GameData.Status.DetailedState == strLive && feed.GameData.Status.DetailedState == "Final" {
 			insertMessageToSend(db, Event{"GameEnded", "", feed.Key, feed.score()})
 		}
 
@@ -130,7 +137,7 @@ func (n *Nhl) Loop() {
 
 func insertMessageToSend(db *sql.DB, newEvent Event) {
 
-	stmNewOutbox, err := db.Prepare("INSERT INTO `ScoreBot`.`Event` (`Type`,`Media`,`MatchId`,`Score`) VALUES (?, ?, ?, ?)")
+	stmNewOutbox, err := db.Prepare("INSERT INTO `ScoreBot`.`Event` (`Type`,`Media`,`MatchId`,`Score`, `IsSent`) VALUES (?, ?, ?, ?, 0)")
 	if err != nil {
 		panic(err.Error())
 	}

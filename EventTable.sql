@@ -4,7 +4,8 @@ CREATE TABLE `Event` (
   `Media` varchar(45) DEFAULT NULL,
   `MatchId` int(11) DEFAULT NULL,
   `Score` varchar(45) DEFAULT NULL,
+  `IsSent` int(11) NOT NULL,
   PRIMARY KEY (`Id`),
   UNIQUE KEY `Id_UNIQUE` (`Id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
 

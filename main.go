@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	nhl := NHL.Nhl{Interfaces.Game{URL: "https://statsapi.web.nhl.com/api/v1/game/2015021078/feed/live"}}
+	nhl := NHL.Nhl{Game: Interfaces.Game{URL: "https://statsapi.web.nhl.com/api/v1/game/2015021078/feed/live"}}
 	nhl.Loop()
 
 }
