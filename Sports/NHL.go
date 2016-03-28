@@ -1,4 +1,4 @@
-package NHL
+package Sports
 
 import (
 	"database/sql"
