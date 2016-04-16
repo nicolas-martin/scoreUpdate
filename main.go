@@ -4,10 +4,13 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"strconv"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -15,8 +18,49 @@ func main() {
 	// nhl := Sports.Nhl{Game: Interfaces.Game{URL: "https://statsapi.web.nhl.com/api/v1/game/2015021078/feed/live"}}
 	// nhl.Loop()
 
+	r := mux.NewRouter()
+	r.HandleFunc("/User", postUserHandler).Methods("POST")
+	r.HandleFunc("/User/{teamID:[0-9]+}", getUserHandler).Methods("GET")
+
+	http.Handle("/", r)
+	http.ListenAndServe(":8080", nil)
+
 	//https://statsapi.web.nhl.com/api/v1/schedule?startDate=2016-04-16&endDate=2016-04-21
 	parseSchedule()
+}
+
+func getUserHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	vars := mux.Vars(r)
+	teamID := vars["teamID"]
+
+	iTeamID, _ := strconv.Atoi(teamID)
+	users := getUser(iTeamID)
+	jsonUsers, _ := json.Marshal(users)
+
+	w.Write(jsonUsers)
+
+}
+
+func postUserHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	tUser := user{}
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		//TODO: Find out return error coce
+		fmt.Println(err)
+	}
+
+	fmt.Println(body)
+
+	json.Unmarshal(body, &tUser)
+
+	insertUser(&tUser)
+
+	// jsonUser, _ := json.Marshal(tUser)
+	// w.Write(jsonUser)
+
 }
 
 func parseSchedule() {
@@ -42,6 +86,59 @@ func parseSchedule() {
 	}
 
 	insertMessageToSchedule(db, schedule)
+
+}
+
+func getUser(teamID int) []user {
+	//TODO: Put this somewhere else.
+	db, err := sql.Open("mysql", "root:password@/ScoreBot")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	fmt.Println("got a get")
+
+	sqlQuery := "select UserName, Platform, Phone, Country, Joined from users where userId in (select Users_UserId from subscription where Teams_TeamId = ?)"
+
+	row, err := db.Query(sqlQuery, teamID)
+	if err != nil {
+		panic(err)
+	}
+
+	var userList []user
+
+	for row.Next() {
+		u := user{}
+
+		err = row.Scan(&u.Username, &u.Platform, &u.Phone, &u.Country, &u.Joined)
+
+		userList = append(userList, u)
+	}
+
+	return userList
+}
+
+func insertUser(vUser *user) {
+	//TODO: Put this somewhere else.
+	db, err := sql.Open("mysql", "root:password@/ScoreBot")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	fmt.Println("got in the insert")
+
+	stmNewOutbox, err := db.Prepare("INSERT INTO `ScoreBot`.`Users` (`UserName`, `Platform`, `Phone`, `Country`, `Joined`) VALUES (?, ?, ?, ?, ?)")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	t := time.Now()
+	// joinedDate, _ := time.Parse("2006-01-02T15:04:05Z07:00", t)
+
+	_, err = stmNewOutbox.Exec(vUser.Username, vUser.Platform, vUser.Phone, vUser.Country, t)
+	if err != nil {
+		panic(err.Error())
+	}
 
 }
 
@@ -71,6 +168,14 @@ func insertMessageToSchedule(db *sql.DB, schedule *schedule) {
 		}
 
 	}
+}
+
+type user struct {
+	Username string
+	Platform string
+	Phone    string
+	Country  string
+	Joined   string
 }
 
 type schedule struct {
