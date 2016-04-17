@@ -21,12 +21,66 @@ func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/User", postUserHandler).Methods("POST")
 	r.HandleFunc("/User/{teamID:[0-9]+}", getUserHandler).Methods("GET")
+	r.HandleFunc("/Subscribe", postSubscriptionHandler).Methods("POST")
 
 	http.Handle("/", r)
 	http.ListenAndServe(":8080", nil)
 
 	//https://statsapi.web.nhl.com/api/v1/schedule?startDate=2016-04-16&endDate=2016-04-21
 	parseSchedule()
+}
+
+func postSubscriptionHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	tSubscription := subscription{}
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		//TODO: Find out return error coce
+		fmt.Println(err)
+	}
+
+	json.Unmarshal(body, &tSubscription)
+
+	fmt.Println(tSubscription)
+
+	insertSubscription(&tSubscription)
+
+}
+
+func insertSubscription(vSubscription *subscription) {
+	//TODO: Put this somewhere else.
+	db, err := sql.Open("mysql", "root:password@/ScoreBot")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	defer db.Close()
+
+	sqlQuery := "SELECT `Users`.`UserId` FROM `ScoreBot`.`Users` WHERE `Users`.`UserName` = ?"
+
+	row, err := db.Query(sqlQuery, vSubscription.Username)
+	if err != nil {
+		panic(err)
+	}
+
+	var userID int
+
+	for row.Next() {
+
+		err = row.Scan(&userID)
+	}
+
+	stmNewOutbox, err := db.Prepare("INSERT INTO `ScoreBot`.`Subscription` (`Users_UserId`, `Teams_TeamId`) VALUES (?, ?);")
+	if err != nil {
+		panic(err.Error())
+	}
+
+	_, err = stmNewOutbox.Exec(userID, vSubscription.TeamID)
+	if err != nil {
+		panic(err.Error())
+	}
+
 }
 
 func getUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +93,16 @@ func getUserHandler(w http.ResponseWriter, r *http.Request) {
 	jsonUsers, _ := json.Marshal(users)
 
 	w.Write(jsonUsers)
+	tUser := user{}
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		//TODO: Find out return error coce
+		fmt.Println(err)
+	}
 
+	fmt.Println(body)
+
+	json.Unmarshal(body, &tUser)
 }
 
 func postUserHandler(w http.ResponseWriter, r *http.Request) {
@@ -51,8 +114,6 @@ func postUserHandler(w http.ResponseWriter, r *http.Request) {
 		//TODO: Find out return error coce
 		fmt.Println(err)
 	}
-
-	fmt.Println(body)
 
 	json.Unmarshal(body, &tUser)
 
@@ -70,6 +131,8 @@ func parseSchedule() {
 	if err != nil {
 		panic(err.Error())
 	}
+
+	defer db.Close()
 
 	//TODO: Select the entire season
 	resp, err := http.Get("https://statsapi.web.nhl.com/api/v1/schedule?startDate=2016-04-16&endDate=2016-04-21")
@@ -95,6 +158,7 @@ func getUser(teamID int) []user {
 	if err != nil {
 		panic(err.Error())
 	}
+	defer db.Close()
 
 	fmt.Println("got a get")
 
@@ -124,6 +188,7 @@ func insertUser(vUser *user) {
 	if err != nil {
 		panic(err.Error())
 	}
+	defer db.Close()
 
 	fmt.Println("got in the insert")
 
@@ -176,6 +241,11 @@ type user struct {
 	Phone    string
 	Country  string
 	Joined   string
+}
+
+type subscription struct {
+	Username string
+	TeamID   int
 }
 
 type schedule struct {
