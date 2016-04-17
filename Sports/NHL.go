@@ -12,60 +12,6 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
-// Feed represents the nhl json object
-type Feed struct {
-	Key      int    `json:"gamePk"`
-	Link     string `json:"link"`
-	GameData struct {
-		Date struct {
-			StartDate string `json:"dateTime"`
-			EndDate   string `json:"endDateTime"`
-		} `json:"datetime"`
-		Status struct {
-			GameState     string `json:"abstractGameState"`
-			DetailedState string `json:"detailedState"`
-		} `json:"status"`
-	} `json:"gameData"`
-	LiveData struct {
-		LineScore struct {
-			CurrentPeriod         int    `json:"currentPeriod"`
-			CurrentPeriodTimeLeft string `json:"currentPeriodTimeRemaining"`
-			Teams                 struct {
-				Home team `json:"home"`
-				Away team `json:"away"`
-			} `json:"teams"`
-		} `json:"linescore"`
-		BoxScore struct {
-			Team struct {
-			} `json:"teams"`
-		} `json:"boxscore"`
-		Plays struct {
-			ScoringPlays []int `json:"scoringPlays"`
-		} `json:"plays"`
-	} `json:"liveData"`
-}
-
-type team struct {
-	// GoaliePulled bool `json:"goaliePulled"`
-	Goals int `json:"goals"`
-	// NumSkaters   int  `json:"numSkaters"`
-	// PowerPlay    bool `json:"powerPlay"`
-	ShotsOnGoal int `json:"shotsOnGoal"`
-	InTeam      struct {
-		ID   int    `json:"id"`
-		Link string `json:"link"`
-		Name string `json:"name"`
-	} `json:"team"`
-}
-
-// Event to insert in the database
-type Event struct {
-	Type    string
-	Media   string
-	MatchID int
-	Score   string
-}
-
 func (f *Feed) score() string {
 	return fmt.Sprintf("%d - %d \r\n", f.LiveData.LineScore.Teams.Home.Goals, f.LiveData.LineScore.Teams.Away.Goals)
 }
@@ -127,6 +73,7 @@ func (n *Nhl) Loop() {
 
 		if prevFeed.GameData.Status.DetailedState == strLive && feed.GameData.Status.DetailedState == "Final" {
 			insertMessageToSend(db, Event{"GameEnded", "", feed.Key, feed.score()})
+			break
 		}
 
 		prevFeed = *feed
@@ -180,3 +127,57 @@ func insertMessageToSend(db *sql.DB, newEvent Event) {
 // 	}
 // }
 //
+
+// Feed represents the nhl json object
+type Feed struct {
+	Key      int    `json:"gamePk"`
+	Link     string `json:"link"`
+	GameData struct {
+		Date struct {
+			StartDate string `json:"dateTime"`
+			EndDate   string `json:"endDateTime"`
+		} `json:"datetime"`
+		Status struct {
+			GameState     string `json:"abstractGameState"`
+			DetailedState string `json:"detailedState"`
+		} `json:"status"`
+	} `json:"gameData"`
+	LiveData struct {
+		LineScore struct {
+			CurrentPeriod         int    `json:"currentPeriod"`
+			CurrentPeriodTimeLeft string `json:"currentPeriodTimeRemaining"`
+			Teams                 struct {
+				Home team `json:"home"`
+				Away team `json:"away"`
+			} `json:"teams"`
+		} `json:"linescore"`
+		BoxScore struct {
+			Team struct {
+			} `json:"teams"`
+		} `json:"boxscore"`
+		Plays struct {
+			ScoringPlays []int `json:"scoringPlays"`
+		} `json:"plays"`
+	} `json:"liveData"`
+}
+
+type team struct {
+	// GoaliePulled bool `json:"goaliePulled"`
+	Goals int `json:"goals"`
+	// NumSkaters   int  `json:"numSkaters"`
+	// PowerPlay    bool `json:"powerPlay"`
+	ShotsOnGoal int `json:"shotsOnGoal"`
+	InTeam      struct {
+		ID   int    `json:"id"`
+		Link string `json:"link"`
+		Name string `json:"name"`
+	} `json:"team"`
+}
+
+// Event to insert in the database
+type Event struct {
+	Type    string
+	Media   string
+	MatchID int
+	Score   string
+}
