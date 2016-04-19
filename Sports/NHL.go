@@ -88,7 +88,7 @@ func (n *Nhl) Loop() {
 
 func insertMessageToSend(db *sql.DB, newEvent Event) {
 
-	stmNewOutbox, err := db.Prepare("INSERT INTO `ScoreBot`.`Event` (`Description`,`GameId`) VALUES (?, ?, ?)")
+	stmNewOutbox, err := db.Prepare("INSERT INTO `ScoreBot`.`Event` (`Description`,`GameId`) VALUES (?, ?)")
 	if err != nil {
 		panic(err.Error())
 	}
