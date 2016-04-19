@@ -6,7 +6,7 @@ Score update is a chatbot which allows users to subscribe to real time game upda
 
 | Sport         | Status        |
 | ------------- |:-------------:|
-| NHL           | In Progress   |
+| NHL           | TESTING       |
 | MLB           | In Progress   |
 | NBA           | In Progress   |
 | NFL           | In Progress   |
@@ -17,7 +17,7 @@ Score update is a chatbot which allows users to subscribe to real time game upda
 
 | Platform      | Status        |
 | ------------- |:-------------:|
-| Kik           | In Progress   |
+| Kik           | TESTING       |
 | Facebook      | In Progress   |
 | Slack         | In Progress   |
 | WeChat        | In Progress   |

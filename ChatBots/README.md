@@ -6,7 +6,7 @@ This folder contains all files related to the Chat Bots
 
 | Platform      | Status        |
 | ------------- |:-------------:|
-| Kik           | In Progress   |
+| Kik           | TESTING       |
 | Facebook      | In Progress   |
 | Slack         | In Progress   |
 | WeChat        | In Progress   |
