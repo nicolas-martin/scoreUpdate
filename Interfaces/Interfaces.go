@@ -11,5 +11,6 @@ type GameEvents interface {
 
 //Game struct that all games should have
 type Game struct {
+	ID  int
 	URL string
 }

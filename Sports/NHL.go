@@ -1,9 +1,11 @@
 package Sports
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"time"
 
@@ -36,14 +38,14 @@ func (n *Nhl) Loop() {
 		feed := new(Feed)
 		err = json.NewDecoder(resp.Body).Decode(feed)
 
+		if err != nil {
+			fmt.Println(err)
+		}
+
 		fmt.Printf(feed.score())
 		fmt.Println(feed)
 
-		db, err := sql.Open("mysql", "root:password@/ScoreBot")
-		if err != nil {
-			panic(err.Error())
-		}
-
+		db := createDbConn()
 		// First run
 		if prevFeed.Key == 0 {
 			prevFeed = *feed
@@ -51,30 +53,32 @@ func (n *Nhl) Loop() {
 
 		defer db.Close()
 
-		_ = "breakpoint"
-		// TODO: Made these 4 methods into interface that each sport will have to implement.
 		// The previous state wasn't live and now it is -- Record game started event.
 		var strLive = "Live"
 		if prevFeed.GameData.Status.DetailedState != strLive && feed.GameData.Status.DetailedState == strLive {
-			//TODO: Need have this match present in a match table
-			insertMessageToSend(db, Event{"GameStarted", "", feed.Key, "0-0"})
+			insertMessageToSend(db, Event{"GameStarted", feed.Key})
 		}
 
 		// Check for new goals -- Seperate for each team?
 		if prevFeed.LiveData.LineScore.Teams.Home.Goals != feed.LiveData.LineScore.Teams.Home.Goals ||
 			prevFeed.LiveData.LineScore.Teams.Away.Goals != feed.LiveData.LineScore.Teams.Away.Goals {
 
-			insertMessageToSend(db, Event{"Goal", "", feed.Key, feed.score()})
+			description := fmt.Sprintf("Goal %s", feed.score())
+			insertMessageToSend(db, Event{description, feed.Key})
 		}
 
 		if prevFeed.LiveData.LineScore.CurrentPeriod > 1 && prevFeed.LiveData.LineScore.CurrentPeriod != feed.LiveData.LineScore.CurrentPeriod {
-			insertMessageToSend(db, Event{"End of period", "", feed.Key, feed.score()})
+			description := fmt.Sprintf("End of period %s", feed.score())
+			insertMessageToSend(db, Event{description, feed.Key})
 		}
 
 		if prevFeed.GameData.Status.DetailedState == strLive && feed.GameData.Status.DetailedState == "Final" {
-			insertMessageToSend(db, Event{"GameEnded", "", feed.Key, feed.score()})
+			description := fmt.Sprintf("GameEnded %s", feed.score())
+			insertMessageToSend(db, Event{description, feed.Key})
 			break
 		}
+
+		defer db.Close()
 
 		prevFeed = *feed
 		time.Sleep(2 * time.Second)
@@ -84,16 +88,88 @@ func (n *Nhl) Loop() {
 
 func insertMessageToSend(db *sql.DB, newEvent Event) {
 
-	stmNewOutbox, err := db.Prepare("INSERT INTO `ScoreBot`.`Event` (`Type`,`Media`,`MatchId`,`Score`, `IsSent`) VALUES (?, ?, ?, ?, 0)")
+	stmNewOutbox, err := db.Prepare("INSERT INTO `ScoreBot`.`Event` (`Description`,`GameId`) VALUES (?, ?, ?)")
 	if err != nil {
 		panic(err.Error())
 	}
 
 	defer stmNewOutbox.Close()
-	_, err = stmNewOutbox.Exec(newEvent.Type, newEvent.Media, newEvent.MatchID, newEvent.Score)
+	_, err = stmNewOutbox.Exec(newEvent.Description, newEvent.GameID)
+
 	if err != nil {
 		panic(err.Error())
 	}
+}
+
+func getAllUsersForTeam(teamID int) []user {
+	url := fmt.Sprintf("https://sportsbot-1255.appspot.com/User/%v", teamID)
+
+	req, err := http.NewRequest("GET", url, nil)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("response Status:", resp.Status)
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println("response Body:", string(body))
+
+	var users []user
+
+	if err := json.Unmarshal(body, &users); err != nil {
+		fmt.Println(err)
+	}
+
+	return users
+
+}
+
+//TODO: use the ChatBot package
+func (n *Nhl) sendRequestToChat(incomingEvent *Event, homeID int, awayID int) {
+	var allUsers []user
+
+	//Get all users that are subscribed to a team
+	homeUsers := getAllUsersForTeam(homeID)
+	awayUsers := getAllUsersForTeam(awayID)
+
+	for _, user := range awayUsers {
+		allUsers = append(allUsers, user)
+	}
+
+	for _, user := range homeUsers {
+		allUsers = append(allUsers, user)
+	}
+
+	// TODO: Switch depending on platform
+	url := "https://66jezutq1k.execute-api.us-east-1.amazonaws.com/production/v1/update/kik"
+
+	newChatPost := chatPost{allUsers, incomingEvent.Description, "text"}
+
+	buf, _ := json.Marshal(newChatPost)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(buf))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("response Status:", resp.Status)
+}
+
+//TODO: Use the same struct package as the API
+type user struct {
+	Username string
+	Platform string
+	Phone    string
+	Country  string
+	Joined   string
+	ChatID   string
 }
 
 // func getUnReadMessages(db *sql.DB) (incomingMessage, error) {
@@ -127,6 +203,17 @@ func insertMessageToSend(db *sql.DB, newEvent Event) {
 // 	}
 // }
 //
+
+// TODO: Move this to sql package
+func createDbConn() *sql.DB {
+	db, err := sql.Open("mysql", "root:aiwojefoa39j2a9VVA3jj32fa3@cloudsql(sportsbot-1255:us-east1:sportsupdate)/ScoreBot")
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return db
+}
 
 // Feed represents the nhl json object
 type Feed struct {
@@ -176,8 +263,12 @@ type team struct {
 
 // Event to insert in the database
 type Event struct {
-	Type    string
-	Media   string
-	MatchID int
-	Score   string
+	Description string
+	GameID      int
+}
+
+type chatPost struct {
+	Users []user
+	Body  string
+	Type  string
 }
