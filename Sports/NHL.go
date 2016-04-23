@@ -28,22 +28,21 @@ func (n *Nhl) Loop() {
 	var prevFeed Feed
 
 	for {
-
-		resp, err := http.Get(n.URL)
-
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		feed := new(Feed)
-		err = json.NewDecoder(resp.Body).Decode(feed)
+		//https://statsapi.web.nhl.com/api/v1/game/2015021078/feed/live"}}
+		apiURL := fmt.Sprintf("https://statsapi.web.nhl.com/%s", n.URL)
+		resp, err := http.Get(apiURL)
 
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		fmt.Printf(feed.score())
-		fmt.Println(feed)
+		var feed = new(Feed)
+
+		err = json.NewDecoder(resp.Body).Decode(&feed)
+
+		if err != nil {
+			fmt.Println(err)
+		}
 
 		db := createDbConn()
 		// First run
@@ -52,30 +51,37 @@ func (n *Nhl) Loop() {
 		}
 
 		defer db.Close()
+		var newEvent Event
 
 		// The previous state wasn't live and now it is -- Record game started event.
 		var strLive = "Live"
 		if prevFeed.GameData.Status.DetailedState != strLive && feed.GameData.Status.DetailedState == strLive {
-			insertMessageToSend(db, Event{"GameStarted", feed.Key})
+			newEvent = Event{"GameStarted", feed.Key}
 		}
 
 		// Check for new goals -- Seperate for each team?
 		if prevFeed.LiveData.LineScore.Teams.Home.Goals != feed.LiveData.LineScore.Teams.Home.Goals ||
 			prevFeed.LiveData.LineScore.Teams.Away.Goals != feed.LiveData.LineScore.Teams.Away.Goals {
-
 			description := fmt.Sprintf("Goal %s", feed.score())
-			insertMessageToSend(db, Event{description, feed.Key})
+			newEvent = Event{description, feed.Key}
 		}
 
 		if prevFeed.LiveData.LineScore.CurrentPeriod > 1 && prevFeed.LiveData.LineScore.CurrentPeriod != feed.LiveData.LineScore.CurrentPeriod {
 			description := fmt.Sprintf("End of period %s", feed.score())
-			insertMessageToSend(db, Event{description, feed.Key})
+			newEvent = Event{description, feed.Key}
 		}
 
 		if prevFeed.GameData.Status.DetailedState == strLive && feed.GameData.Status.DetailedState == "Final" {
 			description := fmt.Sprintf("GameEnded %s", feed.score())
 			insertMessageToSend(db, Event{description, feed.Key})
+			sendRequestToChat(&newEvent, feed.LiveData.LineScore.Teams.Home.InTeam.ID, feed.LiveData.LineScore.Teams.Away.InTeam.ID)
 			break
+		}
+
+		if newEvent.GameID != 0 {
+
+			insertMessageToSend(db, newEvent)
+			sendRequestToChat(&newEvent, feed.LiveData.LineScore.Teams.Home.InTeam.ID, feed.LiveData.LineScore.Teams.Away.InTeam.ID)
 		}
 
 		defer db.Close()
@@ -129,7 +135,7 @@ func getAllUsersForTeam(teamID int) []user {
 }
 
 //TODO: use the ChatBot package
-func (n *Nhl) sendRequestToChat(incomingEvent *Event, homeID int, awayID int) {
+func sendRequestToChat(incomingEvent *Event, homeID int, awayID int) {
 	var allUsers []user
 
 	//Get all users that are subscribed to a team
@@ -206,7 +212,8 @@ type user struct {
 
 // TODO: Move this to sql package
 func createDbConn() *sql.DB {
-	db, err := sql.Open("mysql", "root:aiwojefoa39j2a9VVA3jj32fa3@cloudsql(sportsbot-1255:us-east1:sportsupdate)/ScoreBot")
+	// db, err := sql.Open("mysql", "root:aiwojefoa39j2a9VVA3jj32fa3@cloudsql(sportsbot-1255:us-east1:sportsupdate)/ScoreBot")
+	db, err := sql.Open("mysql", "root:password@/ScoreBot")
 
 	if err != nil {
 		panic(err.Error())
