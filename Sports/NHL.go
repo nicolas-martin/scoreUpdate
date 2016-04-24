@@ -212,8 +212,8 @@ type user struct {
 
 // TODO: Move this to sql package
 func createDbConn() *sql.DB {
-	// db, err := sql.Open("mysql", "root:aiwojefoa39j2a9VVA3jj32fa3@cloudsql(sportsbot-1255:us-east1:sportsupdate)/ScoreBot")
-	db, err := sql.Open("mysql", "root:password@/ScoreBot")
+	db, err := sql.Open("mysql", "root:aiwojefoa39j2a9VVA3jj32fa3@cloudsql(sportsbot-1255:us-east1:sportsupdate)/ScoreBot")
+	// db, err := sql.Open("mysql", "root:password@/ScoreBot")
 
 	if err != nil {
 		panic(err.Error())
