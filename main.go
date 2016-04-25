@@ -89,7 +89,8 @@ func insertMessageToSchedule(pSchedule *schedule) {
 
 // TODO: move this in a sql package
 func createDbConn() *sql.DB {
-	db, err := sql.Open("mysql", "root:aiwojefoa39j2a9VVA3jj32fa3@cloudsql(sportsbot-1255:us-east1:sportsupdate)/ScoreBot")
+    //104.196.10.95
+	db, err := sql.Open("mysql", "root:aiwojefoa39j2a9VVA3jj32fa3@tcp(104.196.10.95:3306)/ScoreBot")
 	// db, err := sql.Open("mysql", "root:password@/ScoreBot")
 
 	if err != nil {
